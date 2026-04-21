@@ -1,14 +1,13 @@
 // src/utils/formatters.ts
 
 import { format, subDays, parse } from 'date-fns';
-import type { DimensionReading } from '../store/useDimensionStore'; // We will define this when updating the store later
+import type { DimensionReading } from '../store/useDimensionStore'; // Defined in store
 
 /**
  * Format dimension reading into display strings.
  */
 
 // Circadian
-// formatCircadian returns the same time string as the input but ensures uniform padding
 export function formatCircadian(timeStr: string): string {
   if (!timeStr) return "—";
   return timeStr;

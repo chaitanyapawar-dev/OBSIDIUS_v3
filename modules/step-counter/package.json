@@ -1,0 +1,7 @@
+{
+  "name": "step-counter",
+  "version": "1.0.0",
+  "description": "Native Android Step Counter module for Obsidius",
+  "main": "index.ts",
+  "expo-module": "./expo-module.config.json"
+}

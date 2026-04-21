@@ -35,6 +35,11 @@ export const Colors = {
   dRecovery:    '#7A6B9B',  // Muted lavender   — rest
   dSocial:      '#9B6B7A',  // Muted rose       — connection
   dConsistency: '#6B9B8B',  // Muted teal       — routine
+  dRetention:   '#8B5E8B',
+  dSleepQuality:'#5E7A8B',
+  dHydration:   '#5E8B7A',
+  dColdExposure:'#8B7A5E',
+  dPhysicalTraining: '#8B6A5E',
 
   // ─── Semantic ─────────────────────────────────────────────────────────────
   // Only one semantic color — used exclusively for reset/restart actions.
@@ -106,7 +111,12 @@ export type DimensionKey =
   | 'physical'
   | 'recovery'
   | 'social'
-  | 'consistency';
+  | 'consistency'
+  | 'retention'
+  | 'sleep-quality'
+  | 'hydration'
+  | 'cold-exposure'
+  | 'physical-training';
 
 export const DimensionAccent: Record<DimensionKey, string> = {
   circadian:   Colors.dCircadian,
@@ -115,4 +125,9 @@ export const DimensionAccent: Record<DimensionKey, string> = {
   recovery:    Colors.dRecovery,
   social:      Colors.dSocial,
   consistency: Colors.dConsistency,
+  retention:   Colors.dRetention,
+  'sleep-quality': Colors.dSleepQuality,
+  hydration:   Colors.dHydration,
+  'cold-exposure': Colors.dColdExposure,
+  'physical-training': Colors.dPhysicalTraining,
 };

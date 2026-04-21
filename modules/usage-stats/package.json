@@ -1,0 +1,7 @@
+{
+  "name": "usage-stats",
+  "version": "1.0.0",
+  "description": "Native Android Usage Stats module for Obsidius",
+  "main": "index.ts",
+  "expo-module": "./expo-module.config.json"
+}

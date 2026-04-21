@@ -71,6 +71,7 @@ export default function TodayScreen() {
 
   useEffect(() => {
     useDimensionStore.getState().seedIfNeeded();
+    useDimensionStore.getState().refreshTodayData(); // real data if native build
   }, []);
 
   return (
@@ -105,6 +106,11 @@ export default function TodayScreen() {
           <DimensionCardItem itemKey="recovery" name="REST BREAKS" />
           <DimensionCardItem itemKey="social" name="CONNECTION" />
           <DimensionCardItem itemKey="consistency" name="DAILY RHYTHM" />
+          <DimensionCardItem itemKey="retention" name="RETENTION" />
+          <DimensionCardItem itemKey="sleep-quality" name="SLEEP QUALITY" />
+          <DimensionCardItem itemKey="hydration" name="HYDRATION" />
+          <DimensionCardItem itemKey="cold-exposure" name="COLD EXPOSURE" />
+          <DimensionCardItem itemKey="physical-training" name="PHYSICAL TRAINING" />
         </View>
 
         <View style={styles.checkinContainer}>

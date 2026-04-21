@@ -21,19 +21,47 @@ export interface DimensionReading {
   activeFormatted?: string;
 }
 
-export type DimensionKey = 'circadian' | 'nutrition' | 'physical' | 'recovery' | 'social' | 'consistency';
+export type DimensionKey =
+  | 'circadian'
+  | 'nutrition'
+  | 'physical'
+  | 'recovery'
+  | 'social'
+  | 'consistency'
+  | 'retention'
+  | 'sleep-quality'
+  | 'hydration'
+  | 'cold-exposure'
+  | 'physical-training';
 
 export interface DimensionState {
   seeded: boolean;
-  // MOCK — replace with native module in native phase
+  IS_MOCK: boolean;
   circadian: { dailyFirstUnlock: Record<string, string> };
   nutrition: { dailyPassiveMinutes: Record<string, number>; dailyActiveMinutes: Record<string, number> };
   physical: { dailySteps: Record<string, number>; dailyStepDistribution: Record<string, 'AM' | 'PM' | 'EVEN' | 'NONE'> };
   recovery: { dailyLongestBreakMinutes: Record<string, number>; dailyBreakCount: Record<string, number> };
   social: { dailyActiveCommMinutes: Record<string, number>; dailyPassiveSocialMinutes: Record<string, number> };
 
+  retention: {
+    currentStreak: number;
+    relapseLog: Array<{ timestamp: number; trigger: string; notes?: string }>;
+  };
+  manualLogs: {
+    dailySleepQuality: Record<string, number>;
+    dailyHydrationLogged: Record<string, boolean>;
+    dailyHydrationLiters: Record<string, number>;
+    dailyColdExposure: Record<string, boolean>;
+    dailyColdMinutes: Record<string, number>;
+    dailyTrainingMinutes: Record<string, number>;
+    dailyTrainingType: Record<string, string>;
+  };
+
   reset: () => void;
   seedIfNeeded: () => void;
+  refreshTodayData: () => Promise<void>;
+  logManualEntry: (dateStr: string, updates: Partial<DimensionState['manualLogs']>) => void;
+  logRelapse: (trigger: string, notes?: string) => void;
 
   getDayReading: (dimension: DimensionKey, dateStr: string) => DimensionReading;
   getWeekSeries: (dimension: DimensionKey) => number[];
@@ -42,91 +70,30 @@ export interface DimensionState {
   getTodayContext: (dimension: DimensionKey) => string;
 }
 
-// MOCK — replace with native module in native phase
-function seedMockData() {
-  const data = {
-    circadian: { dailyFirstUnlock: {} as Record<string, string> },
-    nutrition: { dailyPassiveMinutes: {} as Record<string, number>, dailyActiveMinutes: {} as Record<string, number> },
-    physical: { dailySteps: {} as Record<string, number>, dailyStepDistribution: {} as Record<string, 'AM' | 'PM' | 'EVEN' | 'NONE'> },
-    recovery: { dailyLongestBreakMinutes: {} as Record<string, number>, dailyBreakCount: {} as Record<string, number> },
-    social: { dailyActiveCommMinutes: {} as Record<string, number>, dailyPassiveSocialMinutes: {} as Record<string, number> },
-  };
-
-  const today = new Date();
-  const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
-
-  let lowStepStreak = 0;
-
-  for (let i = 20; i >= 0; i--) {
-    const d = subDays(today, i);
-    const dateStr = format(d, 'yyyy-MM-dd');
-    const weekend = isWeekend(d);
-
-    // Circadian
-    const baseWake = weekend ? randomInt(480, 585) : randomInt(390, 480);
-    const wakeHH = String(Math.floor(baseWake / 60)).padStart(2, '0');
-    const wakeMM = String(baseWake % 60).padStart(2, '0');
-    data.circadian.dailyFirstUnlock[dateStr] = `${wakeHH}:${wakeMM}`;
-
-    // Nutrition
-    let passive, active;
-    if (weekend) {
-      passive = randomInt(180, 300);
-      active = randomInt(30, 90);
-    } else {
-      passive = randomInt(60, 240);
-      active = randomInt(60, 180);
-    }
-    data.nutrition.dailyPassiveMinutes[dateStr] = passive;
-    data.nutrition.dailyActiveMinutes[dateStr] = active;
-
-    // Physical
-    let steps = randomInt(1800, 11000);
-    if (steps < 3000) {
-      lowStepStreak++;
-      if (lowStepStreak > 2) {
-        steps = randomInt(3500, 11000);
-        lowStepStreak = 0;
-      }
-    } else {
-      lowStepStreak = 0;
-    }
-    data.physical.dailySteps[dateStr] = steps;
-
-    const distRand = Math.random();
-    let dist: 'AM' | 'PM' | 'EVEN' | 'NONE' = 'AM';
-    if (distRand < 0.6) dist = 'AM';
-    else if (distRand < 0.8) dist = 'PM';
-    else if (distRand < 0.95) dist = 'EVEN';
-    else dist = 'NONE';
-    data.physical.dailyStepDistribution[dateStr] = dist;
-
-    // Recovery
-    if (Math.random() < 0.3) {
-      data.recovery.dailyLongestBreakMinutes[dateStr] = 0;
-      data.recovery.dailyBreakCount[dateStr] = 0;
-    } else {
-      const longest = randomInt(5, 90);
-      data.recovery.dailyLongestBreakMinutes[dateStr] = longest;
-      data.recovery.dailyBreakCount[dateStr] = longest >= 20 ? randomInt(1, 5) : 0;
-    }
-
-    // Social
-    data.social.dailyActiveCommMinutes[dateStr] = randomInt(10, 60);
-    data.social.dailyPassiveSocialMinutes[dateStr] = randomInt(30, 180);
-  }
-
-  return data;
-}
-
 const emptyState = {
   seeded: false,
+  IS_MOCK: true,
   circadian: { dailyFirstUnlock: {} },
   nutrition: { dailyPassiveMinutes: {}, dailyActiveMinutes: {} },
   physical: { dailySteps: {}, dailyStepDistribution: {} },
   recovery: { dailyLongestBreakMinutes: {}, dailyBreakCount: {} },
   social: { dailyActiveCommMinutes: {}, dailyPassiveSocialMinutes: {} },
+  retention: { currentStreak: 0, relapseLog: [] },
+  manualLogs: {
+    dailySleepQuality: {},
+    dailyHydrationLogged: {},
+    dailyHydrationLiters: {},
+    dailyColdExposure: {},
+    dailyColdMinutes: {},
+    dailyTrainingMinutes: {},
+    dailyTrainingType: {},
+  }
 };
+
+function seedMockData() {
+  // WIPE MOCK DATA: completely remove all for loops and return 100% blank slate
+  return { ...emptyState };
+}
 
 export const useDimensionStore = create<DimensionState>()(
   persist(
@@ -142,6 +109,97 @@ export const useDimensionStore = create<DimensionState>()(
         if (!seeded) {
           set({ ...seedMockData(), seeded: true });
         }
+      },
+
+      refreshTodayData: async () => {
+        const today = format(new Date(), 'yyyy-MM-dd');
+        try {
+          // Attempt to load native modules.
+          // These only exist in dev/production builds, not Expo Go.
+          const UsageStats = require('../../modules/usage-stats').default;
+          const StepCounter = require('../../modules/step-counter').default;
+
+          const [usage, stepData] = await Promise.all([
+            UsageStats.getDailyUsage(today),
+            StepCounter.getTodaySteps(),
+          ]);
+
+          set((state) => ({
+            IS_MOCK: false,
+            circadian: {
+              dailyFirstUnlock: {
+                ...state.circadian.dailyFirstUnlock,
+                [today]: usage.firstUnlockTime,
+              },
+            },
+            nutrition: {
+              dailyPassiveMinutes: {
+                ...state.nutrition.dailyPassiveMinutes,
+                [today]: usage.passiveMinutes,
+              },
+              dailyActiveMinutes: {
+                ...state.nutrition.dailyActiveMinutes,
+                [today]: usage.activeMinutes,
+              },
+            },
+            physical: {
+              dailySteps: {
+                ...state.physical.dailySteps,
+                [today]: stepData.steps,
+              },
+              dailyStepDistribution: {
+                ...state.physical.dailyStepDistribution,
+                [today]: 'AM' as const,
+              },
+            },
+            recovery: {
+              dailyLongestBreakMinutes: {
+                ...state.recovery.dailyLongestBreakMinutes,
+                [today]: usage.longestScreenOffBreakMinutes,
+              },
+              dailyBreakCount: {
+                ...state.recovery.dailyBreakCount,
+                [today]: usage.breakCount,
+              },
+            },
+            social: {
+              dailyActiveCommMinutes: {
+                ...state.social.dailyActiveCommMinutes,
+                [today]: usage.activeCommMinutes,
+              },
+              dailyPassiveSocialMinutes: {
+                ...state.social.dailyPassiveSocialMinutes,
+                [today]: usage.passiveMinutes,
+              },
+            },
+          }));
+
+          console.log('[Obsidius] Real data loaded for', today);
+        } catch (e) {
+          // Native modules not available (Expo Go) — keep existing data silently
+          console.log('[Obsidius] Native modules unavailable, using stored data:', e);
+        }
+      },
+
+      logManualEntry: (dateStr: string, updates) => {
+        set(state => {
+          const newLogs = { ...state.manualLogs };
+          Object.keys(updates).forEach(k => {
+            const key = k as keyof DimensionState['manualLogs'];
+            // @ts-ignore
+            newLogs[key] = { ...newLogs[key], [dateStr]: updates[key] };
+          });
+          return { manualLogs: newLogs };
+        });
+      },
+
+      logRelapse: (trigger: string, notes?: string) => {
+        set(state => ({
+          retention: {
+            currentStreak: 0,
+            relapseLog: [...state.retention.relapseLog, { timestamp: Date.now(), trigger, notes }],
+          }
+        }));
       },
 
       getDayReading: (dimension: DimensionKey, dateStr: string) => {
@@ -185,6 +243,25 @@ export const useDimensionStore = create<DimensionState>()(
             const series = useCheckinStore.getState().getWeekConsistency();
             return formatConsistency(series);
           }
+          case 'retention': {
+            return { primaryValue: `${state.retention.currentStreak}d`, secondaryLabel: 'current streak', rawNumber: state.retention.currentStreak };
+          }
+          case 'sleep-quality': {
+            const sq = state.manualLogs.dailySleepQuality[dateStr];
+            return { primaryValue: sq ? `${sq}/5` : '—', secondaryLabel: 'rating', rawNumber: sq || 0 };
+          }
+          case 'hydration': {
+            const gls = state.manualLogs.dailyHydrationLiters[dateStr];
+            return { primaryValue: gls ? `${gls}L` : '—', secondaryLabel: 'logged', rawNumber: gls || 0 };
+          }
+          case 'cold-exposure': {
+            const mins = state.manualLogs.dailyColdMinutes[dateStr];
+            return { primaryValue: mins ? `${mins}m` : '—', secondaryLabel: 'immersion', rawNumber: mins || 0 };
+          }
+          case 'physical-training': {
+            const mins = state.manualLogs.dailyTrainingMinutes[dateStr];
+            return { primaryValue: mins ? `${mins}m` : '—', secondaryLabel: state.manualLogs.dailyTrainingType[dateStr] || 'training', rawNumber: mins || 0 };
+          }
         }
       },
 
@@ -209,11 +286,21 @@ export const useDimensionStore = create<DimensionState>()(
           case 'social':
             return dates.map(d => state.social.dailyActiveCommMinutes[d] || 0);
           case 'consistency':
+          case 'retention':
             return dates.map(() => 0);
+          case 'sleep-quality':
+            return dates.map(d => state.manualLogs.dailySleepQuality[d] || 0);
+          case 'hydration':
+            return dates.map(d => state.manualLogs.dailyHydrationLiters[d] || 0);
+          case 'cold-exposure':
+            return dates.map(d => state.manualLogs.dailyColdMinutes[d] || 0);
+          case 'physical-training':
+            return dates.map(d => state.manualLogs.dailyTrainingMinutes[d] || 0);
         }
       },
 
       getWeekAverage: (dimension: DimensionKey) => {
+        if (dimension === 'consistency' || dimension === 'retention') return 0;
         const series = get().getWeekSeries(dimension).filter(x => x > 0);
         if (series.length === 0) return 0;
         return Math.round(series.reduce((a, b) => a + b, 0) / series.length);
@@ -250,9 +337,8 @@ export const useDimensionStore = create<DimensionState>()(
         const todayStr = format(new Date(), 'yyyy-MM-dd');
         const todayVal = get().getDayReading(dimension, todayStr).rawNumber;
 
-        if (dimension === 'consistency') {
-          return "Your rhythm is steady.";
-        }
+        if (dimension === 'consistency') return "Your rhythm is steady.";
+        if (dimension === 'retention') return "Maintaining control.";
 
         if (!todayVal || !avg) return "Data establishing baseline.";
 
@@ -273,6 +359,11 @@ export const useDimensionStore = create<DimensionState>()(
             return "Shorter breaks than usual today";
           case 'social':
             return diff < 0 ? "Less active communication than usual" : "Above average active connection";
+          case 'sleep-quality':
+          case 'hydration':
+          case 'cold-exposure':
+          case 'physical-training':
+            return diff >= 0 ? "Above average today" : "Below average today";
         }
         return "Maintaining baseline.";
       },

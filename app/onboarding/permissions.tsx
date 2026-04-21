@@ -1,6 +1,6 @@
 // app/onboarding/permissions.tsx
 import React from 'react';
-import { View, Text, Linking, StyleSheet, PermissionsAndroid, Platform, ScrollView } from 'react-native';
+import { View, Text, Linking, StyleSheet, PermissionsAndroid, Platform, ScrollView, AppState, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Feather from '@expo/vector-icons/Feather';
@@ -22,38 +22,61 @@ export default function PermissionsScreen(): React.ReactElement {
 
   const handleUsagePress = async () => {
     if (usageGranted) return;
-    await Linking.openSettings();
-    setUsage(true);
+    
+    // Open the specific Usage Access settings page
+    await Linking.sendIntent('android.settings.USAGE_ACCESS_SETTINGS');
+    
+    // Set up AppState listener to check when user returns
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        subscription.remove();
+        // Show a prompt asking user to confirm they granted it
+        Alert.alert(
+          'Did you grant access?',
+          'Did you turn on Usage Access for Obsidius in the settings?',
+          [
+            {
+              text: 'Yes, I granted it',
+              onPress: () => setUsage(true),
+            },
+            {
+              text: 'Not yet',
+              style: 'cancel',
+            },
+          ]
+        );
+      }
+    });
   };
 
   const handleActivityPress = async () => {
     if (activityGranted) return;
-    
-    // Implement native PermissionsAndroid request
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION,
-          {
-            title: 'Physical Activation Access',
-            message: 'Obsidius needs access to your physical activity to track steps.',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          }
-        );
-        if (granted === PermissionsAndroid.RESULTS.GRANTED || granted === 'granted') {
-          setActivity(true);
-        } else {
-          // Dev mock fallback if permission denied or not in manifest
-          setActivity(true); 
+    if (Platform.OS !== 'android') return;
+
+    try {
+      const result = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION,
+        {
+          title: 'Step Counting Access',
+          message: 'Obsidius counts your daily steps to track Physical Activation.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'Allow',
         }
-      } catch (err) {
-        console.warn(err);
-        setActivity(true); // Fallback to unblock
+      );
+      // ONLY set true if actually granted — do not fake it
+      if (result === PermissionsAndroid.RESULTS.GRANTED) {
+        setActivity(true);
+      } else {
+        Alert.alert(
+          'Permission not granted',
+          'Step counting will show placeholder data. You can grant access later in Profile.',
+          [{ text: 'OK' }]
+        );
       }
-    } else {
-      setActivity(true); // default true for non-android mocking
+    } catch (err) {
+      console.warn('Activity permission request failed:', err);
+      // Do NOT call setActivity(true) here
     }
   };
 

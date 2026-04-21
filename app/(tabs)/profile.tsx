@@ -3,10 +3,11 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Linking, PermissionsAndroid, Alert } from 'react-native';
 import { router } from 'expo-router';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { ChevronRight, Trash2 } from 'lucide-react-native';
+import { ChevronRight, Trash2, Copy } from 'lucide-react-native';
 import { parse, format } from 'date-fns';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as Clipboard from 'expo-clipboard';
 
 import { Colors } from '../../src/theme/colors';
 import { Typography, t, Spacing, Radius } from '../../src/theme';
@@ -40,23 +41,68 @@ export default function ProfileScreen() {
   const [showMorningPicker, setShowMorningPicker] = useState(false);
   const [showEveningPicker, setShowEveningPicker] = useState(false);
 
+  const handleCopyAnalysisPrompt = async () => {
+    try {
+      const dates = getLastNDates(21);
+      const dimState = useDimensionStore.getState();
+      const checkinHistory = useCheckinStore.getState().checkinHistory;
+
+      const rows = ['Date,WakeTime,PassiveMins,ActiveMins,Steps,LongestBreak,ActiveComm,SleepQuality,HydrationLiters,ColdMinutes,TrainingMinutes,TrainingType,EveningStatus'];
+      for (const d of dates) {
+        const circ = dimState.circadian.dailyFirstUnlock[d] || '';
+        const nutPass = dimState.nutrition.dailyPassiveMinutes[d] || 0;
+        const nutAct = dimState.nutrition.dailyActiveMinutes[d] || 0;
+        const phys = dimState.physical.dailySteps[d] || 0;
+        const rec = dimState.recovery.dailyLongestBreakMinutes[d] || 0;
+        const socAct = dimState.social.dailyActiveCommMinutes[d] || 0;
+        
+        const slp = dimState.manualLogs.dailySleepQuality[d] || '';
+        const hyd = dimState.manualLogs.dailyHydrationLiters[d] || 0;
+        const cld = dimState.manualLogs.dailyColdMinutes[d] || 0;
+        const trMn = dimState.manualLogs.dailyTrainingMinutes[d] || 0;
+        const trTy = dimState.manualLogs.dailyTrainingType[d] || '';
+
+        const chk = checkinHistory.find(c => c.date === d);
+        const cons = chk && chk.eveningDone && chk.eveningStatus ? chk.eveningStatus : '';
+
+        rows.push(`${d},${circ},${nutPass},${nutAct},${phys},${rec},${socAct},${slp},${hyd},${cld},${trMn},${trTy},${cons}`);
+      }
+
+      const csvStr = rows.join('\n');
+      const prompt = `Here is my behavioral tracking data from the Obsidius system over the past 21 days.\n\nPlease act as a neuro-behavioral coach. Analyze the patterns in this data across Circadian Rhythm, Digital Diet, Physical Movement, Recovery, Social Connection, Daily Routine, Sleep Quality, Hydration, Cold Exposure, and Training.\n\nIdentify 3 crucial hidden correlations I am missing, and suggest exactly 1 highly precise protocol adjustment I should focus on for the next 7 days.\n\nData:\n\n${csvStr}`;
+
+      await Clipboard.setStringAsync(prompt);
+      Alert.alert('Prompt copied', 'Paste into Claude or ChatGPT for your personal analysis.');
+    } catch (e) {
+      console.warn('Failed to copy analysis prompt:', e);
+    }
+  };
+
   const handleExportData = async () => {
     try {
       const dates = getLastNDates(21);
       const dimState = useDimensionStore.getState();
       const checkinHistory = useCheckinStore.getState().checkinHistory;
 
-      const rows = ['Date,Circadian,Nutrition,Physical,Recovery,Social,Consistency'];
+      const rows = ['Date,WakeTime,PassiveMins,ActiveMins,Steps,LongestBreak,ActiveComm,SleepQuality,HydrationLiters,ColdMinutes,TrainingMinutes,TrainingType,EveningStatus'];
       for (const d of dates) {
         const circ = dimState.circadian.dailyFirstUnlock[d] || '';
         const nutPass = dimState.nutrition.dailyPassiveMinutes[d] || 0;
+        const nutAct = dimState.nutrition.dailyActiveMinutes[d] || 0;
         const phys = dimState.physical.dailySteps[d] || 0;
-        const rec = dimState.recovery.dailyBreakCount[d] || 0;
+        const rec = dimState.recovery.dailyLongestBreakMinutes[d] || 0;
         const socAct = dimState.social.dailyActiveCommMinutes[d] || 0;
+        
+        const slp = dimState.manualLogs.dailySleepQuality[d] || '';
+        const hyd = dimState.manualLogs.dailyHydrationLiters[d] || 0;
+        const cld = dimState.manualLogs.dailyColdMinutes[d] || 0;
+        const trMn = dimState.manualLogs.dailyTrainingMinutes[d] || 0;
+        const trTy = dimState.manualLogs.dailyTrainingType[d] || '';
+
         const chk = checkinHistory.find(c => c.date === d);
         const cons = chk && chk.eveningDone && chk.eveningStatus ? chk.eveningStatus : '';
 
-        rows.push(`${d},${circ},${nutPass},${phys},${rec},${socAct},${cons}`);
+        rows.push(`${d},${circ},${nutPass},${nutAct},${phys},${rec},${socAct},${slp},${hyd},${cld},${trMn},${trTy},${cons}`);
       }
 
       const csvStr = rows.join('\n');
@@ -169,6 +215,11 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={[t('heading-s'), styles.sectionTitle]}>YOUR DATA</Text>
           <GhostCard>
+            <Pressable onPress={handleCopyAnalysisPrompt} style={styles.row}>
+              <Text style={[t('body-m'), { color: Colors.silverHi }]}>Copy analysis prompt</Text>
+              <Copy size={20} color={Colors.silverLo} />
+            </Pressable>
+            <View style={styles.divider} />
             <Pressable onPress={handleExportData} style={styles.row}>
               <Text style={[t('body-m'), { color: Colors.silverHi }]}>Export all data</Text>
               <ChevronRight size={20} color={Colors.silverLo} />

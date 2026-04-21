@@ -21,6 +21,11 @@ const NAME_MAP: Record<DimensionKey, string> = {
   recovery: 'REST BREAKS',
   social: 'CONNECTION',
   consistency: 'DAILY RHYTHM',
+  retention: 'RETENTION',
+  'sleep-quality': 'SLEEP QUALITY',
+  hydration: 'HYDRATION',
+  'cold-exposure': 'COLD EXPOSURE',
+  'physical-training': 'PHYSICAL TRAINING',
 };
 
 function Sparkline({ dimensionKey }: { dimensionKey: DimensionKey }) {
@@ -149,6 +154,11 @@ export default function InsightsScreen() {
           <GridCell itemKey="recovery" />
           <GridCell itemKey="social" />
           <GridCell itemKey="consistency" />
+          <GridCell itemKey="retention" />
+          <GridCell itemKey="sleep-quality" />
+          <GridCell itemKey="hydration" />
+          <GridCell itemKey="cold-exposure" />
+          <GridCell itemKey="physical-training" />
         </View>
 
         <View style={styles.section}>

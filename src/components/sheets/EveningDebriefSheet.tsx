@@ -11,7 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
-import { RotateCcw } from 'lucide-react-native';
+import { RotateCcw, Droplets, Snowflake, Dumbbell } from 'lucide-react-native';
 
 import { Colors, Gradients } from '../../theme/colors';
 import { Typography, t, Spacing } from '../../theme';
@@ -21,6 +21,41 @@ import { useCheckinStore } from '../../store/useCheckinStore';
 import { useDimensionStore } from '../../store/useDimensionStore';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function LogToggleRow({
+  icon: Icon,
+  label,
+  value,
+  onToggle
+}: {
+  icon: any;
+  label: string;
+  value: boolean | undefined;
+  onToggle: (v: boolean) => void;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Icon color={Colors.silverMid} size={20} />
+        <Text style={[t('heading-s'), styles.label, { marginBottom: 0, marginLeft: 12 }]}>{label}</Text>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Pressable 
+          onPress={() => onToggle(true)} 
+          style={[styles.pillBtn, value === true && styles.pillBtnActive]}
+        >
+          <Text style={[t('body-s'), { color: value === true ? Colors.void : Colors.silverMid }]}>YES</Text>
+        </Pressable>
+        <Pressable 
+          onPress={() => onToggle(false)} 
+          style={[styles.pillBtn, value === false && styles.pillBtnActive]}
+        >
+          <Text style={[t('body-s'), { color: value === false ? Colors.void : Colors.silverMid }]}>NO</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
 
 function getTodayInsight(): string {
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -147,14 +182,33 @@ export const EveningDebriefSheet = forwardRef<BottomSheetModal, {}>((_, ref) => 
   const [selectedStatus, setSelectedStatus] = useState<'maintained' | 'reset' | undefined>(undefined);
   const [selectedEnergy, setSelectedEnergy] = useState<number | undefined>(undefined);
   const [reflection, setReflection] = useState('');
-  const [inputFocused, setInputFocused] = useState(false);
+  
+  // Extra fields for 11-dimension expansion
+  const [sleepQuality, setSleepQuality] = useState<number | undefined>(undefined);
+  
+  const [hydrated, setHydrated] = useState<boolean | undefined>(undefined);
+  const [hydrationLiters, setHydrationLiters] = useState('');
+  
+  const [coldExposure, setColdExposure] = useState<boolean | undefined>(undefined);
+  const [coldMinutes, setColdMinutes] = useState('');
+  
+  const [trained, setTrained] = useState<boolean | undefined>(undefined);
+  const [trainingMinutes, setTrainingMinutes] = useState('');
+  const [trainingType, setTrainingType] = useState('');
 
   const handleSheetChanges = (index: number) => {
     if (index === -1) {
       setSelectedStatus(undefined);
       setSelectedEnergy(undefined);
       setReflection('');
-      setInputFocused(false);
+      setSleepQuality(undefined);
+      setHydrated(undefined);
+      setHydrationLiters('');
+      setColdExposure(undefined);
+      setColdMinutes('');
+      setTrained(undefined);
+      setTrainingMinutes('');
+      setTrainingType('');
     }
   };
 
@@ -166,7 +220,47 @@ export const EveningDebriefSheet = forwardRef<BottomSheetModal, {}>((_, ref) => 
 
   const handleCloseDay = () => {
     if (!selectedStatus || selectedEnergy === undefined) return;
+    
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    
+    // Save standard checkin
     useCheckinStore.getState().completeEvening(selectedStatus, selectedEnergy, reflection.trim());
+    
+    // Save manual logs
+    const logs: any = {};
+    if (sleepQuality !== undefined) logs.dailySleepQuality = sleepQuality;
+    
+    if (hydrated) {
+      const liters = parseFloat(hydrationLiters);
+      if (!isNaN(liters)) {
+        logs.dailyHydrationLogged = true;
+        logs.dailyHydrationLiters = liters;
+      }
+    } else if (hydrated === false) {
+      logs.dailyHydrationLogged = false;
+      logs.dailyHydrationLiters = 0;
+    }
+    
+    if (coldExposure) {
+      logs.dailyColdExposure = true;
+      const cMins = parseInt(coldMinutes, 10);
+      if (!isNaN(cMins)) logs.dailyColdMinutes = cMins;
+    } else if (coldExposure === false) {
+      logs.dailyColdExposure = false;
+      logs.dailyColdMinutes = 0;
+    }
+    
+    if (trained) {
+      const tMins = parseInt(trainingMinutes, 10);
+      if (!isNaN(tMins)) logs.dailyTrainingMinutes = tMins;
+      if (trainingType.trim()) logs.dailyTrainingType = trainingType.trim();
+    } else if (trained === false) {
+      logs.dailyTrainingMinutes = 0;
+      logs.dailyTrainingType = '';
+    }
+
+    useDimensionStore.getState().logManualEntry(todayStr, logs);
+
     dismiss();
     if (selectedStatus === 'reset') {
       setTimeout(() => router.push('/modals/reset'), 400);
@@ -178,7 +272,7 @@ export const EveningDebriefSheet = forwardRef<BottomSheetModal, {}>((_, ref) => 
   return (
     <BottomSheetModal
       ref={ref}
-      snapPoints={['80%']}
+      snapPoints={['90%']}
       backgroundStyle={styles.bg}
       handleComponent={CustomHandle}
       onChange={handleSheetChanges}
@@ -190,7 +284,7 @@ export const EveningDebriefSheet = forwardRef<BottomSheetModal, {}>((_, ref) => 
            showsVerticalScrollIndicator={false}
         >
           <Text style={[t('display-s'), styles.title]}>How did today go?</Text>
-          <Text style={[t('body-m'), styles.subtitle]}>Take a moment.</Text>
+          <Text style={[t('body-m'), styles.subtitle]}>Log your manual tracking and take a moment.</Text>
 
           <Text style={[t('heading-s'), styles.label]}>TODAY</Text>
           <View style={styles.statusRow}>
@@ -206,7 +300,7 @@ export const EveningDebriefSheet = forwardRef<BottomSheetModal, {}>((_, ref) => 
             />
           </View>
 
-          <Text style={[t('heading-s'), styles.label]}>ENERGY</Text>
+          <Text style={[t('heading-s'), styles.label]}>TOTAL ENERGY</Text>
           <View style={styles.energyRow}>
             {[1, 2, 3, 4, 5].map((val) => (
               <EnergyCircularOption 
@@ -218,20 +312,98 @@ export const EveningDebriefSheet = forwardRef<BottomSheetModal, {}>((_, ref) => 
             ))}
           </View>
 
+          <View style={styles.logSection}>
+            <Text style={[t('heading-s'), styles.label]}>SLEEP QUALITY (1-5)</Text>
+            <View style={styles.energyRow}>
+              {[1, 2, 3, 4, 5].map((val) => (
+                <EnergyCircularOption 
+                  key={val} 
+                  value={val} 
+                  selected={sleepQuality === val} 
+                  onPress={() => setSleepQuality(val)} 
+                />
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.logSection}>
+             <LogToggleRow 
+               icon={Droplets} 
+               label="HYDRATION" 
+               value={hydrated} 
+               onToggle={setHydrated} 
+             />
+             {hydrated && (
+              <TextInput
+                style={[t('body-l'), styles.input, {marginTop: Spacing.sm}]}
+                placeholder="Liters of water (e.g. 2.5)"
+                placeholderTextColor={Colors.silverLo}
+                selectionColor={Colors.silverHi}
+                value={hydrationLiters}
+                onChangeText={setHydrationLiters}
+                keyboardType="decimal-pad"
+              />
+             )}
+          </View>
+          
+          <View style={styles.logSection}>
+             <LogToggleRow 
+               icon={Snowflake} 
+               label="COLD EXPOSURE" 
+               value={coldExposure} 
+               onToggle={setColdExposure} 
+             />
+            {coldExposure && (
+              <TextInput
+                style={[t('body-l'), styles.input, {marginTop: Spacing.sm}]}
+                placeholder="Minutes in cold (e.g. 3)"
+                placeholderTextColor={Colors.silverLo}
+                selectionColor={Colors.silverHi}
+                value={coldMinutes}
+                onChangeText={setColdMinutes}
+                keyboardType="numeric"
+              />
+            )}
+          </View>
+
+          <View style={styles.logSection}>
+             <LogToggleRow 
+               icon={Dumbbell} 
+               label="PHYSICAL TRAINING" 
+               value={trained} 
+               onToggle={setTrained} 
+             />
+             {trained && (
+              <View style={{flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm}}>
+                <TextInput
+                  style={[t('body-l'), styles.input, {flex: 1}]}
+                  placeholder="Active Mins"
+                  placeholderTextColor={Colors.silverLo}
+                  selectionColor={Colors.silverHi}
+                  value={trainingMinutes}
+                  onChangeText={setTrainingMinutes}
+                  keyboardType="numeric"
+                />
+                <TextInput
+                  style={[t('body-l'), styles.input, {flex: 2}]}
+                  placeholder="Type (e.g. Cardio)"
+                  placeholderTextColor={Colors.silverLo}
+                  selectionColor={Colors.silverHi}
+                  value={trainingType}
+                  onChangeText={setTrainingType}
+                />
+              </View>
+            )}
+          </View>
+
           <Text style={[t('heading-s'), styles.label]}>REFLECTION</Text>
           <TextInput
-            style={[
-              t('body-l'), 
-              styles.input, 
-              inputFocused && styles.inputFocused
-            ]}
+            style={[t('body-l'), styles.input]}
             placeholder="One line — how did today actually feel?"
             placeholderTextColor={Colors.silverLo}
             selectionColor={Colors.silverHi}
             value={reflection}
             onChangeText={setReflection}
-            onFocus={() => setInputFocused(true)}
-            onBlur={() => setInputFocused(false)}
             multiline={true}
           />
 
@@ -321,23 +493,32 @@ const styles = StyleSheet.create({
   energyCircleSelected: {
     borderWidth: 0,
   },
+  logSection: {
+    marginBottom: Spacing.xl,
+  },
+  pillBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  pillBtnActive: {
+    backgroundColor: Colors.silverHi,
+  },
   input: {
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(194,203,214,0.2)',
     paddingVertical: Spacing.sm,
     color: Colors.silverHi,
-    marginBottom: Spacing.xl,
     minHeight: 40,
     textAlignVertical: 'top',
-  },
-  inputFocused: {
-    borderBottomColor: Colors.silver,
   },
   insightCard: {
     borderLeftWidth: 3,
     borderLeftColor: Colors.dNutrition,
     padding: Spacing.lg,
     marginBottom: Spacing.xxxl,
+    marginTop: Spacing.xl,
   },
   insightLabel: {
     color: Colors.silverLo,
