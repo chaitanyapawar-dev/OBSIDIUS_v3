@@ -1,7 +1,7 @@
 // src/components/sheets/EveningDebriefSheet.tsx
-import React, { useState, forwardRef } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView } from 'react-native';
-import { BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
+import React, { useState, forwardRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Keyboard } from 'react-native';
+import { BottomSheetModal, BottomSheetView, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -179,6 +179,17 @@ function CustomHandle() {
 }
 
 export const EveningDebriefSheet = forwardRef<BottomSheetModal, {}>((_, ref) => {
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const [selectedStatus, setSelectedStatus] = useState<'maintained' | 'reset' | undefined>(undefined);
   const [selectedEnergy, setSelectedEnergy] = useState<number | undefined>(undefined);
   const [reflection, setReflection] = useState('');
@@ -272,13 +283,16 @@ export const EveningDebriefSheet = forwardRef<BottomSheetModal, {}>((_, ref) => 
   return (
     <BottomSheetModal
       ref={ref}
-      snapPoints={['90%']}
+      index={0}
+      snapPoints={['85%', '95%']}
+      enablePanDownToClose={!isKeyboardVisible}
       backgroundStyle={styles.bg}
       handleComponent={CustomHandle}
       onChange={handleSheetChanges}
+      keyboardBehavior="extend"
     >
       <BottomSheetView style={styles.bottomSheetView}>
-        <ScrollView 
+        <BottomSheetScrollView 
            contentContainerStyle={styles.content}
            keyboardShouldPersistTaps="handled"
            showsVerticalScrollIndicator={false}
@@ -420,7 +434,7 @@ export const EveningDebriefSheet = forwardRef<BottomSheetModal, {}>((_, ref) => 
               style={styles.btn}
             />
           </View>
-        </ScrollView>
+        </BottomSheetScrollView>
       </BottomSheetView>
     </BottomSheetModal>
   );

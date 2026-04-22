@@ -37,11 +37,11 @@ function DimensionCardItem({ itemKey, name }: { itemKey: DimensionKey; name: str
           <View style={[styles.dimensionAccent, { backgroundColor: DimensionAccent[itemKey] }]} />
           <View style={styles.dimensionTextGroup}>
             <Text style={[t('heading-s'), { color: Colors.silverMid, marginBottom: 4 }]}>{name}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-              <Text style={[t('data-l'), { color: Colors.silverHi, marginRight: Spacing.sm }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexShrink: 1 }}>
+              <Text style={[t('data-l'), { color: Colors.silverHi, marginRight: Spacing.sm }]} numberOfLines={1}>
                 {reading.primaryValue}
               </Text>
-              <Text style={[t('body-m'), { color: Colors.silver, paddingBottom: 4 }]}>
+              <Text style={[t('body-m'), { color: Colors.silver, paddingBottom: 4, flexShrink: 1 }]} numberOfLines={1} ellipsizeMode="tail">
                 {reading.secondaryLabel}
               </Text>
             </View>
@@ -72,6 +72,16 @@ export default function TodayScreen() {
   useEffect(() => {
     useDimensionStore.getState().seedIfNeeded();
     useDimensionStore.getState().refreshTodayData(); // real data if native build
+
+    const state = useDimensionStore.getState()
+    const checkin = useCheckinStore.getState()
+    const today = format(new Date(), 'yyyy-MM-dd')
+    console.log('[Data Check] Today:', today)
+    console.log('[Data Check] Steps:', state.physical.dailySteps[today])
+    console.log('[Data Check] Passive:', state.nutrition.dailyPassiveMinutes[today])
+    console.log('[Data Check] FirstUnlock:', state.circadian.dailyFirstUnlock[today])
+    console.log('[Data Check] Checkin history:', checkin.checkinHistory)
+    console.log('[Data Check] IS_MOCK:', state.IS_MOCK)
   }, []);
 
   return (

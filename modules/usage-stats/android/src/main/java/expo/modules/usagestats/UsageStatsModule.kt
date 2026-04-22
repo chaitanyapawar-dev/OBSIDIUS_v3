@@ -55,7 +55,7 @@ class UsageStatsModule : Module() {
 
       // Query app usage stats
       val stats = usm.queryUsageStats(
-        UsageStatsManager.INTERVAL_DAILY, startTime, endTime
+        UsageStatsManager.INTERVAL_BEST, startTime, endTime
       ) ?: emptyList()
 
       var passiveMinutes = 0L
@@ -72,31 +72,99 @@ class UsageStatsModule : Module() {
         }
       }
 
-      // Find first unlock time and screen-off break periods
-      val events = usm.queryEvents(startTime, endTime)
-      val event = UsageEvents.Event()
+      // Calculate total actual screen-on time from events
+      var totalScreenOnMs = 0L
+      var screenOnStart = 0L
+      val screenEvents = usm.queryEvents(startTime, endTime)
+      val screenEvt = UsageEvents.Event()
 
+      while (screenEvents.hasNextEvent()) {
+        screenEvents.getNextEvent(screenEvt)
+        when (screenEvt.eventType) {
+          UsageEvents.Event.SCREEN_INTERACTIVE -> screenOnStart = screenEvt.timeStamp
+          UsageEvents.Event.SCREEN_NON_INTERACTIVE -> {
+            if (screenOnStart > 0) {
+              totalScreenOnMs += screenEvt.timeStamp - screenOnStart
+              screenOnStart = 0L
+            }
+          }
+        }
+      }
+      // If screen is still on at end of period
+      if (screenOnStart > 0) totalScreenOnMs += endTime - screenOnStart
+
+      val totalScreenOnMinutes = (totalScreenOnMs / 60000L).toInt()
+
+      // Cap the sum so it cannot exceed actual screen-on time
+      val rawTotal = passiveMinutes + activeMinutes + activeCommMinutes
+      if (rawTotal > totalScreenOnMinutes && totalScreenOnMinutes > 0) {
+        val ratio = totalScreenOnMinutes.toDouble() / rawTotal.toDouble()
+        passiveMinutes = (passiveMinutes * ratio).toLong()
+        activeMinutes = (activeMinutes * ratio).toLong()
+        activeCommMinutes = (activeCommMinutes * ratio).toLong()
+      }
+
+      // BUG 1: Wake Rhythm shows "00:02" instead of real hour
       var firstUnlockMs = 0L
-      var lastScreenOnMs = 0L
+
+      // Define the valid window: 05:00 to midnight of the queried date
+      val fiveAmCal = Calendar.getInstance()
+      fiveAmCal.timeInMillis = startTime
+      fiveAmCal.set(Calendar.HOUR_OF_DAY, 5)
+      fiveAmCal.set(Calendar.MINUTE, 0)
+      fiveAmCal.set(Calendar.SECOND, 0)
+      val fiveAmMs = fiveAmCal.timeInMillis
+
+      // Query events again for unlock detection
+      val unlockEvents = usm.queryEvents(fiveAmMs, endTime)
+      val unlockEvent = UsageEvents.Event()
+
+      while (unlockEvents.hasNextEvent()) {
+        unlockEvents.getNextEvent(unlockEvent)
+        // KEYGUARD_HIDDEN = user dismissed lock screen (actual human unlock)
+        if (unlockEvent.eventType == UsageEvents.Event.KEYGUARD_HIDDEN) {
+          firstUnlockMs = unlockEvent.timeStamp
+          break  // Only want the FIRST one
+        }
+      }
+
+      // BUG 4: Recovery State showing 328 min (counting sleep time)
+      val sevenAmCal = Calendar.getInstance()
+      sevenAmCal.timeInMillis = startTime
+      sevenAmCal.set(Calendar.HOUR_OF_DAY, 7)
+      sevenAmCal.set(Calendar.MINUTE, 0)
+      val sevenAmMs = sevenAmCal.timeInMillis
+
+      val tenPmCal = Calendar.getInstance()
+      tenPmCal.timeInMillis = startTime
+      tenPmCal.set(Calendar.HOUR_OF_DAY, 22)
+      tenPmCal.set(Calendar.MINUTE, 0)
+      val tenPmMs = tenPmCal.timeInMillis
+
+      val BREAK_THRESHOLD_MS = 15L * 60L * 1000L // 15 minutes minimum (research: Kleitman ultradian)
+
       var longestBreakMs = 0L
       var breakCount = 0
-      val BREAK_THRESHOLD_MS = 20L * 60L * 1000L // 20 minutes
+      var screenOffStartMs = 0L
 
-      while (events.hasNextEvent()) {
-        events.getNextEvent(event)
-        when (event.eventType) {
-          UsageEvents.Event.SCREEN_INTERACTIVE -> {
-            if (firstUnlockMs == 0L) firstUnlockMs = event.timeStamp
-            // Calculate break if screen was off
-            if (lastScreenOnMs > 0) {
-              val breakMs = event.timeStamp - lastScreenOnMs
-              if (breakMs > longestBreakMs) longestBreakMs = breakMs
-              if (breakMs >= BREAK_THRESHOLD_MS) breakCount++
-            }
-            lastScreenOnMs = 0L
-          }
+      val breakEvents = usm.queryEvents(sevenAmMs, tenPmMs)
+      val breakEvt = UsageEvents.Event()
+
+      while (breakEvents.hasNextEvent()) {
+        breakEvents.getNextEvent(breakEvt)
+        when (breakEvt.eventType) {
           UsageEvents.Event.SCREEN_NON_INTERACTIVE -> {
-            lastScreenOnMs = event.timeStamp
+            screenOffStartMs = breakEvt.timeStamp
+          }
+          UsageEvents.Event.SCREEN_INTERACTIVE -> {
+            if (screenOffStartMs > 0) {
+              val breakDurationMs = breakEvt.timeStamp - screenOffStartMs
+              if (breakDurationMs >= BREAK_THRESHOLD_MS) {
+                breakCount++
+                if (breakDurationMs > longestBreakMs) longestBreakMs = breakDurationMs
+              }
+              screenOffStartMs = 0L
+            }
           }
         }
       }

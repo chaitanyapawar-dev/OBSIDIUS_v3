@@ -28,6 +28,7 @@ import { useOnboardingStore } from '../src/store/useOnboardingStore';
 import { useCheckinStore }    from '../src/store/useCheckinStore';
 import { useDimensionStore }  from '../src/store/useDimensionStore';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // ─── Splash guard ─────────────────────────────────────────────────────────
 // Called at module evaluation time — before any component renders.
@@ -101,8 +102,10 @@ export default function RootLayout(): React.ReactElement | null {
   // All header chrome is hidden globally. Individual screens manage
   // their own headings via text elements, not the navigator header.
   return (
-    <BottomSheetModalProvider>
-      <Stack screenOptions={{ headerShown: false }} />
-    </BottomSheetModalProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <BottomSheetModalProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+      </BottomSheetModalProvider>
+    </GestureHandlerRootView>
   );
 }

@@ -49,18 +49,18 @@ export default function ProfileScreen() {
 
       const rows = ['Date,WakeTime,PassiveMins,ActiveMins,Steps,LongestBreak,ActiveComm,SleepQuality,HydrationLiters,ColdMinutes,TrainingMinutes,TrainingType,EveningStatus'];
       for (const d of dates) {
-        const circ = dimState.circadian.dailyFirstUnlock[d] || '';
-        const nutPass = dimState.nutrition.dailyPassiveMinutes[d] || 0;
-        const nutAct = dimState.nutrition.dailyActiveMinutes[d] || 0;
-        const phys = dimState.physical.dailySteps[d] || 0;
-        const rec = dimState.recovery.dailyLongestBreakMinutes[d] || 0;
-        const socAct = dimState.social.dailyActiveCommMinutes[d] || 0;
+        const circ = dimState.circadian?.dailyFirstUnlock?.[d] || '';
+        const nutPass = dimState.nutrition?.dailyPassiveMinutes?.[d] || 0;
+        const nutAct = dimState.nutrition?.dailyActiveMinutes?.[d] || 0;
+        const phys = dimState.physical?.dailySteps?.[d] || 0;
+        const rec = dimState.recovery?.dailyLongestBreakMinutes?.[d] || 0;
+        const socAct = dimState.social?.dailyActiveCommMinutes?.[d] || 0;
         
-        const slp = dimState.manualLogs.dailySleepQuality[d] || '';
-        const hyd = dimState.manualLogs.dailyHydrationLiters[d] || 0;
-        const cld = dimState.manualLogs.dailyColdMinutes[d] || 0;
-        const trMn = dimState.manualLogs.dailyTrainingMinutes[d] || 0;
-        const trTy = dimState.manualLogs.dailyTrainingType[d] || '';
+        const slp = dimState.manualLogs?.dailySleepQuality?.[d] || '';
+        const hyd = dimState.manualLogs?.dailyHydrationLiters?.[d] || 0;
+        const cld = dimState.manualLogs?.dailyColdMinutes?.[d] || 0;
+        const trMn = dimState.manualLogs?.dailyTrainingMinutes?.[d] || 0;
+        const trTy = dimState.manualLogs?.dailyTrainingType?.[d] || '';
 
         const chk = checkinHistory.find(c => c.date === d);
         const cons = chk && chk.eveningDone && chk.eveningStatus ? chk.eveningStatus : '';
@@ -86,18 +86,18 @@ export default function ProfileScreen() {
 
       const rows = ['Date,WakeTime,PassiveMins,ActiveMins,Steps,LongestBreak,ActiveComm,SleepQuality,HydrationLiters,ColdMinutes,TrainingMinutes,TrainingType,EveningStatus'];
       for (const d of dates) {
-        const circ = dimState.circadian.dailyFirstUnlock[d] || '';
-        const nutPass = dimState.nutrition.dailyPassiveMinutes[d] || 0;
-        const nutAct = dimState.nutrition.dailyActiveMinutes[d] || 0;
-        const phys = dimState.physical.dailySteps[d] || 0;
-        const rec = dimState.recovery.dailyLongestBreakMinutes[d] || 0;
-        const socAct = dimState.social.dailyActiveCommMinutes[d] || 0;
+        const circ = dimState.circadian?.dailyFirstUnlock?.[d] || '';
+        const nutPass = dimState.nutrition?.dailyPassiveMinutes?.[d] || 0;
+        const nutAct = dimState.nutrition?.dailyActiveMinutes?.[d] || 0;
+        const phys = dimState.physical?.dailySteps?.[d] || 0;
+        const rec = dimState.recovery?.dailyLongestBreakMinutes?.[d] || 0;
+        const socAct = dimState.social?.dailyActiveCommMinutes?.[d] || 0;
         
-        const slp = dimState.manualLogs.dailySleepQuality[d] || '';
-        const hyd = dimState.manualLogs.dailyHydrationLiters[d] || 0;
-        const cld = dimState.manualLogs.dailyColdMinutes[d] || 0;
-        const trMn = dimState.manualLogs.dailyTrainingMinutes[d] || 0;
-        const trTy = dimState.manualLogs.dailyTrainingType[d] || '';
+        const slp = dimState.manualLogs?.dailySleepQuality?.[d] || '';
+        const hyd = dimState.manualLogs?.dailyHydrationLiters?.[d] || 0;
+        const cld = dimState.manualLogs?.dailyColdMinutes?.[d] || 0;
+        const trMn = dimState.manualLogs?.dailyTrainingMinutes?.[d] || 0;
+        const trTy = dimState.manualLogs?.dailyTrainingType?.[d] || '';
 
         const chk = checkinHistory.find(c => c.date === d);
         const cons = chk && chk.eveningDone && chk.eveningStatus ? chk.eveningStatus : '';

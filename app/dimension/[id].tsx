@@ -1,7 +1,9 @@
 // app/dimension/[id].tsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, ScrollView, Dimensions, StyleSheet, Pressable, Alert } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { EveningDebriefSheet } from '../../src/components/sheets/EveningDebriefSheet';
 import Svg, { Rect, Circle, Polyline, Line, Text as SvgText } from 'react-native-svg';
 import Animated, { 
   AnimatedProps,
@@ -55,28 +57,20 @@ const CitationMap: Record<DimensionKey, string> = {
   'physical-training': 'Vigorous physical training modulates BDNF expression, preserving neuroplasticity (Cotman & Berchtold, 2002).',
 };
 
-export function AnimatedStackedVerticalBar({ x, yTarget, totalHeight, width, index }: { x: number, yTarget: number, totalHeight: number, width: number, index: number }) {
+export function AnimatedVerticalBar({ x, yTarget, totalHeight, width, index }: { x: number, yTarget: number, totalHeight: number, width: number, index: number }) {
   const h = useSharedValue(0);
 
   useEffect(() => {
     h.value = withDelay(index * 80, withTiming(totalHeight, { duration: 500 }));
   }, [totalHeight, index]);
 
-  const topProps = useAnimatedProps<AnimatedRectProps>(() => ({
-    height: h.value * 0.4,
+  const props = useAnimatedProps<AnimatedRectProps>(() => ({
+    height: h.value,
     y: (yTarget + totalHeight) - h.value
   }));
 
-  const bottomProps = useAnimatedProps<AnimatedRectProps>(() => ({
-    height: h.value * 0.6,
-    y: (yTarget + totalHeight) - (h.value * 0.6)
-  }));
-
   return (
-    <React.Fragment>
-      <AnimatedRect x={x} width={width} fill="rgba(194,203,214,0.6)" rx={4} animatedProps={topProps} />
-      <AnimatedRect x={x} width={width} fill="rgba(194,203,214,0.25)" rx={4} animatedProps={bottomProps} />
-    </React.Fragment>
+    <AnimatedRect x={x} width={width} fill="rgba(194,203,214,0.6)" rx={4} animatedProps={props} />
   );
 }
 
@@ -170,7 +164,7 @@ export function renderPhysicalChart(chartWidth: number, labels: string[], series
         {seriesData.map((val, i) => {
           const h = (val / maxVal) * chartHeight;
           return (
-            <AnimatedStackedVerticalBar 
+            <AnimatedVerticalBar 
               key={i} 
               x={i * (barWidth + gap)} 
               yTarget={chartHeight - h} 
@@ -562,8 +556,7 @@ export function renderPhysicalTrainingChart(
           
           return (
             <React.Fragment key={d}>
-              <Rect x={x} y={y} width={barWidth} height={h} fill={Colors.dPhysicalTraining} rx={4} opacity={0.4} />
-              <Rect x={x} y={y} width={barWidth} height={h * 0.4} fill={Colors.dPhysicalTraining} rx={4} opacity={0.7} />
+              <Rect x={x} y={y} width={barWidth} height={h} fill={Colors.dPhysicalTraining} rx={4} opacity={0.6} />
               {mins > 0 && (
                 <SvgText x={x + barWidth / 2} y={y - 6} fill={Colors.silverLo} fontFamily={Typography['data-s'].fontFamily} textAnchor="middle">
                   {type.substring(0, 3)}
@@ -584,9 +577,65 @@ export function renderPhysicalTrainingChart(
   );
 }
 
+const formatValue = (dim: DimensionKey, val: number) => {
+  if (val === 0) return '—';
+  switch (dim) {
+    case 'circadian': 
+      const h = Math.floor(val / 60);
+      const m = val % 60;
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    case 'nutrition':
+    case 'social':
+    case 'physical-training':
+    case 'recovery':
+    case 'cold-exposure':
+      return val >= 60 ? `${(val/60).toFixed(1)}h` : `${val}m`;
+    case 'physical': return val.toLocaleString();
+    case 'sleep-quality': return `${val}/5`;
+    case 'hydration': return `${val}L`;
+    default: return val.toString();
+  }
+}
+
+export function RetentionTimer({ currentStreak, relapseLog }: { currentStreak: number, relapseLog: Array<{ timestamp: number }> }) {
+  const [elapsed, setElapsed] = React.useState('');
+  
+  useEffect(() => {
+    if (currentStreak === 0 && relapseLog.length === 0) {
+      setElapsed('00:00:00:00');
+      return;
+    }
+    
+    let startTimestamp = Date.now();
+    if (currentStreak === 0 && relapseLog.length > 0) {
+      startTimestamp = relapseLog[relapseLog.length - 1].timestamp;
+    } else {
+      startTimestamp = Date.now() - (currentStreak * 86400000);
+    }
+
+    const interval = setInterval(() => {
+      const diff = Date.now() - startTimestamp;
+      const d = Math.floor(diff / 86400000);
+      const hrs = Math.floor((diff % 86400000) / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setElapsed(`${d.toString().padStart(2, '0')}:${hrs.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [currentStreak, relapseLog]);
+
+  return (
+    <View style={{ alignItems: 'center', marginBottom: Spacing.xl }}>
+      <Text style={[t('heading-s'), { color: Colors.silverMid, marginBottom: Spacing.sm }]}>CURRENT STREAK LIVE</Text>
+      <Text style={[t('display-m'), { color: Colors.silverHi, fontVariant: ['tabular-nums'] }]}>{elapsed || '00:00:00:00'}</Text>
+    </View>
+  );
+}
 
 export default function DimensionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: DimensionKey }>();
+  const sheetRef = useRef<BottomSheetModal>(null);
   
   const getDayReading = useDimensionStore(s => s.getDayReading);
   const getWeekSeries = useDimensionStore(s => s.getWeekSeries);
@@ -656,6 +705,7 @@ export default function DimensionDetailScreen() {
       <Text style={[t('body-m'), styles.citation]}>"{CitationMap[id]}"</Text>
 
       {renderChart()}
+      {id === 'retention' && <RetentionTimer currentStreak={retentionData.currentStreak} relapseLog={retentionData.relapseLog} />}
 
       <GhostCard style={styles.todayCard}>
         <Text style={[t('heading-s'), styles.sectionLabel]}>TODAY</Text>
@@ -669,7 +719,7 @@ export default function DimensionDetailScreen() {
       {['sleep-quality', 'hydration', 'cold-exposure', 'physical-training'].includes(id) && reading.primaryValue === '—' && (
         <SilverButton 
           label="Log Today's Data" 
-          onPress={() => router.navigate('/(tabs)/today')} 
+          onPress={() => sheetRef.current?.present()} 
           style={{ marginBottom: Spacing.xl }} 
         />
       )}
@@ -691,15 +741,19 @@ export default function DimensionDetailScreen() {
         <View style={styles.summaryRow}>
           <GhostCard style={styles.summaryCard}>
             <Text style={[t('heading-s'), styles.sectionLabel]}>7-DAY AVERAGE</Text>
-            <Text style={[t('data-l'), styles.summaryValue]}>{avg}</Text>
+            <Text style={[t('data-l'), styles.summaryValue]}>{formatValue(id, avg)}</Text>
           </GhostCard>
           
           <GhostCard style={styles.summaryCard}>
             <Text style={[t('heading-s'), styles.sectionLabel]}>7-DAY BEST</Text>
-            <Text style={[t('data-l'), styles.summaryValue]}>{best.value}</Text>
+            <Text style={[t('data-l'), styles.summaryValue]}>{formatValue(id, best.value)}</Text>
             <Text style={[t('body-s'), styles.bestDate]}>{best.date}</Text>
           </GhostCard>
         </View>
+      )}
+
+      {['sleep-quality', 'hydration', 'cold-exposure', 'physical-training'].includes(id) && (
+        <EveningDebriefSheet ref={sheetRef} />
       )}
     </ScrollView>
   );

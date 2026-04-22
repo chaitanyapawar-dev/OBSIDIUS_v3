@@ -27,6 +27,7 @@ export interface CheckinState {
   resetToday: () => void;
   wasMorningOnTime: () => boolean;
   getWeekConsistency: () => ConsistencyStatus[];
+  debugWeekState: () => void;
   reset: () => void;
 }
 
@@ -158,6 +159,22 @@ export const useCheckinStore = create<CheckinState>()(
 
       reset: () => {
         set({ checkinHistory: [] });
+      },
+
+      debugWeekState: () => {
+        const history: CheckinEntry[] = [];
+        const now = new Date();
+        const statuses: Array<'maintained' | 'reset'> = ['maintained', 'maintained', 'reset', 'maintained', 'maintained', 'maintained', 'maintained'];
+        for (let i = 6; i >= 0; i--) {
+          const dStr = format(subDays(now, i), 'yyyy-MM-dd');
+          history.push({
+            date: dStr,
+            morningDone: true,
+            eveningDone: true,
+            eveningStatus: statuses[6 - i]
+          });
+        }
+        set({ checkinHistory: history });
       },
     }),
     {

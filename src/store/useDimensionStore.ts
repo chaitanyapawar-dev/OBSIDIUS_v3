@@ -12,6 +12,8 @@ import {
   formatConsistency,
   getLastNDates
 } from '../utils/formatters';
+import UsageStatsModule from '../../modules/usage-stats';
+import StepCounterModule from '../../modules/step-counter';
 
 export interface DimensionReading {
   primaryValue: string;
@@ -114,14 +116,12 @@ export const useDimensionStore = create<DimensionState>()(
       refreshTodayData: async () => {
         const today = format(new Date(), 'yyyy-MM-dd');
         try {
-          // Attempt to load native modules.
-          // These only exist in dev/production builds, not Expo Go.
-          const UsageStats = require('../../modules/usage-stats').default;
-          const StepCounter = require('../../modules/step-counter').default;
-
+          // Native modules are statically imported at the top of the file.
+          // requireOptionalNativeModule inside each module returns null in Expo Go,
+          // which causes getDailyUsage/getTodaySteps to reject — caught below.
           const [usage, stepData] = await Promise.all([
-            UsageStats.getDailyUsage(today),
-            StepCounter.getTodaySteps(),
+            UsageStatsModule.getDailyUsage(today),
+            StepCounterModule.getTodaySteps(),
           ]);
 
           set((state) => ({
@@ -174,20 +174,21 @@ export const useDimensionStore = create<DimensionState>()(
             },
           }));
 
-          console.log('[Obsidius] Real data loaded for', today);
-        } catch (e) {
-          // Native modules not available (Expo Go) — keep existing data silently
-          console.log('[Obsidius] Native modules unavailable, using stored data:', e);
+          console.log('[Obsidius] ✅ Real sensor data loaded for', today);
+        } catch (e: any) {
+          // Native modules unavailable (Expo Go) or permissions not yet granted.
+          // Keeps existing stored data without crashing.
+          console.warn('[Obsidius] ⚠️ Native data fetch failed:', e?.message ?? e);
         }
       },
 
       logManualEntry: (dateStr: string, updates) => {
         set(state => {
-          const newLogs = { ...state.manualLogs };
+          const newLogs = { ...(state.manualLogs || emptyState.manualLogs) };
           Object.keys(updates).forEach(k => {
             const key = k as keyof DimensionState['manualLogs'];
             // @ts-ignore
-            newLogs[key] = { ...newLogs[key], [dateStr]: updates[key] };
+            newLogs[key] = { ...(newLogs[key] || {}), [dateStr]: updates[key] };
           });
           return { manualLogs: newLogs };
         });
@@ -247,20 +248,20 @@ export const useDimensionStore = create<DimensionState>()(
             return { primaryValue: `${state.retention.currentStreak}d`, secondaryLabel: 'current streak', rawNumber: state.retention.currentStreak };
           }
           case 'sleep-quality': {
-            const sq = state.manualLogs.dailySleepQuality[dateStr];
+            const sq = state.manualLogs?.dailySleepQuality?.[dateStr];
             return { primaryValue: sq ? `${sq}/5` : '—', secondaryLabel: 'rating', rawNumber: sq || 0 };
           }
           case 'hydration': {
-            const gls = state.manualLogs.dailyHydrationLiters[dateStr];
+            const gls = state.manualLogs?.dailyHydrationLiters?.[dateStr];
             return { primaryValue: gls ? `${gls}L` : '—', secondaryLabel: 'logged', rawNumber: gls || 0 };
           }
           case 'cold-exposure': {
-            const mins = state.manualLogs.dailyColdMinutes[dateStr];
+            const mins = state.manualLogs?.dailyColdMinutes?.[dateStr];
             return { primaryValue: mins ? `${mins}m` : '—', secondaryLabel: 'immersion', rawNumber: mins || 0 };
           }
           case 'physical-training': {
-            const mins = state.manualLogs.dailyTrainingMinutes[dateStr];
-            return { primaryValue: mins ? `${mins}m` : '—', secondaryLabel: state.manualLogs.dailyTrainingType[dateStr] || 'training', rawNumber: mins || 0 };
+            const mins = state.manualLogs?.dailyTrainingMinutes?.[dateStr];
+            return { primaryValue: mins ? `${mins}m` : '—', secondaryLabel: state.manualLogs?.dailyTrainingType?.[dateStr] || 'training', rawNumber: mins || 0 };
           }
         }
       },
@@ -289,13 +290,13 @@ export const useDimensionStore = create<DimensionState>()(
           case 'retention':
             return dates.map(() => 0);
           case 'sleep-quality':
-            return dates.map(d => state.manualLogs.dailySleepQuality[d] || 0);
+            return dates.map(d => state.manualLogs?.dailySleepQuality?.[d] || 0);
           case 'hydration':
-            return dates.map(d => state.manualLogs.dailyHydrationLiters[d] || 0);
+            return dates.map(d => state.manualLogs?.dailyHydrationLiters?.[d] || 0);
           case 'cold-exposure':
-            return dates.map(d => state.manualLogs.dailyColdMinutes[d] || 0);
+            return dates.map(d => state.manualLogs?.dailyColdMinutes?.[d] || 0);
           case 'physical-training':
-            return dates.map(d => state.manualLogs.dailyTrainingMinutes[d] || 0);
+            return dates.map(d => state.manualLogs?.dailyTrainingMinutes?.[d] || 0);
         }
       },
 

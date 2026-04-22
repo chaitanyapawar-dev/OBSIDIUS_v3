@@ -45,7 +45,33 @@ class StepCounterModule : Module() {
       }
       sensorManager.unregisterListener(listener)
 
-      mapOf("steps" to stepCount, "available" to received)
+      var finalSteps = 0
+      if (received) {
+        val prefs = context.getSharedPreferences("ObsidiusStepData", Context.MODE_PRIVATE)
+        val todayDateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+
+        val savedDate = prefs.getString("lastDate", "")
+        val savedBaseline = prefs.getInt("baselineSteps", -1)
+
+        val currentSteps = stepCount
+
+        if (savedDate != todayDateStr || savedBaseline == -1) {
+          prefs.edit()
+            .putString("lastDate", todayDateStr)
+            .putInt("baselineSteps", currentSteps)
+            .apply()
+          finalSteps = 0
+        } else {
+          finalSteps = currentSteps - savedBaseline
+          if (finalSteps < 0) {
+            // Device likely rebooted resetting sensor
+            prefs.edit().putInt("baselineSteps", 0).apply()
+            finalSteps = currentSteps
+          }
+        }
+      }
+
+      mapOf("steps" to finalSteps, "available" to received)
     }
   }
 }
