@@ -233,6 +233,21 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={[t('heading-s'), styles.sectionTitle]}>DEBUG (DEV ONLY)</Text>
+          <GhostCard>
+            <Pressable onPress={() => {
+              Alert.alert('Raw Data', JSON.stringify({
+                checkinStore: useCheckinStore.getState(),
+                dimensionStore: useDimensionStore.getState()
+              }, null, 2))
+            }} style={styles.row}>
+              <Text style={[t('body-m'), { color: Colors.silverHi }]}>View raw data</Text>
+              <ChevronRight size={20} color={Colors.silverLo} />
+            </Pressable>
+          </GhostCard>
+        </View>
+
+        <View style={styles.section}>
           <Text style={[t('heading-s'), styles.sectionTitle]}>ABOUT</Text>
           <GhostCard style={styles.row}>
             <Text style={[t('body-m'), { color: Colors.silverHi }]}>Version</Text>

@@ -62,7 +62,15 @@ export interface DimensionState {
   reset: () => void;
   seedIfNeeded: () => void;
   refreshTodayData: () => Promise<void>;
-  logManualEntry: (dateStr: string, updates: Partial<DimensionState['manualLogs']>) => void;
+  logManualEntry: (dateStr: string, updates: {
+    dailySleepQuality?: number;
+    dailyHydrationLogged?: boolean;
+    dailyHydrationLiters?: number;
+    dailyColdExposure?: boolean;
+    dailyColdMinutes?: number;
+    dailyTrainingMinutes?: number;
+    dailyTrainingType?: string;
+  }) => void;
   logRelapse: (trigger: string, notes?: string) => void;
 
   getDayReading: (dimension: DimensionKey, dateStr: string) => DimensionReading;
@@ -107,9 +115,15 @@ export const useDimensionStore = create<DimensionState>()(
       },
 
       seedIfNeeded: () => {
-        const { seeded } = get();
+        const { seeded, physical } = get();
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const hasToday = physical.dailySteps[todayStr] !== undefined;
+        
         if (!seeded) {
           set({ ...seedMockData(), seeded: true });
+        }
+        if (!hasToday) {
+           get().refreshTodayData();
         }
       },
 
@@ -182,7 +196,7 @@ export const useDimensionStore = create<DimensionState>()(
         }
       },
 
-      logManualEntry: (dateStr: string, updates) => {
+      logManualEntry: (dateStr: string, updates: any) => {
         set(state => {
           const newLogs = { ...(state.manualLogs || emptyState.manualLogs) };
           Object.keys(updates).forEach(k => {

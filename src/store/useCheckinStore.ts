@@ -143,7 +143,7 @@ export const useCheckinStore = create<CheckinState>()(
           } else {
             if (dStr === todayStr) {
               const currentHour = parseInt(format(now, 'HH'), 10);
-              if (currentHour >= 22) {
+              if (currentHour >= 24) {
                 result.push('missed');
               } else {
                 result.push('pending');
