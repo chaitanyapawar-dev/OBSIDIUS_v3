@@ -13,6 +13,8 @@ import { Colors, Gradients } from '../../theme/colors';
 import { Typography, t, Spacing } from '../../theme';
 import { SilverButton } from '../SilverButton';
 import { useCheckinStore } from '../../store/useCheckinStore';
+import { useDimensionStore } from '../../store/useDimensionStore';
+import { format } from 'date-fns';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -70,12 +72,14 @@ function CustomHandle() {
 
 export const MorningCheckinSheet = forwardRef<BottomSheetModal, {}>((_, ref) => {
   const [selectedEnergy, setSelectedEnergy] = useState<number | undefined>(undefined);
+  const [sleepQuality, setSleepQuality] = useState<number | undefined>(undefined);
   const [wordInput, setWordInput] = useState('');
   const [inputFocused, setInputFocused] = useState(false);
 
   const handleSheetChanges = (index: number) => {
     if (index === -1) {
       setSelectedEnergy(undefined);
+      setSleepQuality(undefined);
       setWordInput('');
       setInputFocused(false);
     }
@@ -90,6 +94,10 @@ export const MorningCheckinSheet = forwardRef<BottomSheetModal, {}>((_, ref) => 
   const handleStart = () => {
     if (selectedEnergy === undefined) return;
     useCheckinStore.getState().completeMorning(selectedEnergy, wordInput.trim());
+    if (sleepQuality !== undefined) {
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      useDimensionStore.getState().logManualEntry(todayStr, { dailySleepQuality: sleepQuality });
+    }
     dismiss();
   };
 
@@ -117,6 +125,18 @@ export const MorningCheckinSheet = forwardRef<BottomSheetModal, {}>((_, ref) => 
               value={val} 
               selected={selectedEnergy === val} 
               onPress={() => setSelectedEnergy(val)} 
+            />
+          ))}
+        </View>
+
+        <Text style={[t('heading-s'), styles.label]}>SLEEP QUALITY (1-5)</Text>
+        <View style={styles.energyRow}>
+          {[1, 2, 3, 4, 5].map((val) => (
+            <EnergyCircularOption 
+              key={`sq-${val}`} 
+              value={val} 
+              selected={sleepQuality === val} 
+              onPress={() => setSleepQuality(val)} 
             />
           ))}
         </View>

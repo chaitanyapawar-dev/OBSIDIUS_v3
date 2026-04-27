@@ -194,9 +194,19 @@ export const EveningDebriefSheet = forwardRef<BottomSheetModal, {}>((_, ref) => 
   const [selectedEnergy, setSelectedEnergy] = useState<number | undefined>(undefined);
   const [reflection, setReflection] = useState('');
   
-  // Extra fields for 11-dimension expansion
-  const [sleepQuality, setSleepQuality] = useState<number | undefined>(undefined);
+  const dimState = useDimensionStore.getState();
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
   
+  const alreadyHydrated = dimState.manualLogs.dailyHydrationLogged[todayStr];
+  const alreadyHydrationLiters = dimState.manualLogs.dailyHydrationLiters[todayStr];
+  
+  const alreadyCold = dimState.manualLogs.dailyColdExposure[todayStr];
+  const alreadyColdMins = dimState.manualLogs.dailyColdMinutes[todayStr];
+  
+  const alreadyTrained = dimState.manualLogs.dailyTrainingMinutes[todayStr] !== undefined && dimState.manualLogs.dailyTrainingMinutes[todayStr] > 0;
+  const alreadyTrainedMins = dimState.manualLogs.dailyTrainingMinutes[todayStr];
+  const alreadyTrainedType = dimState.manualLogs.dailyTrainingType[todayStr];
+
   const [hydrated, setHydrated] = useState<boolean | undefined>(undefined);
   const [hydrationLiters, setHydrationLiters] = useState('');
   
@@ -212,7 +222,6 @@ export const EveningDebriefSheet = forwardRef<BottomSheetModal, {}>((_, ref) => 
       setSelectedStatus(undefined);
       setSelectedEnergy(undefined);
       setReflection('');
-      setSleepQuality(undefined);
       setHydrated(undefined);
       setHydrationLiters('');
       setColdExposure(undefined);
@@ -239,35 +248,40 @@ export const EveningDebriefSheet = forwardRef<BottomSheetModal, {}>((_, ref) => 
     
     // Save manual logs
     const logs: any = {};
-    if (sleepQuality !== undefined) logs.dailySleepQuality = sleepQuality;
     
-    if (hydrated) {
-      const liters = parseFloat(hydrationLiters);
-      if (!isNaN(liters)) {
-        logs.dailyHydrationLogged = true;
-        logs.dailyHydrationLiters = liters;
+    if (alreadyHydrated === undefined) {
+      if (hydrated) {
+        const liters = parseFloat(hydrationLiters);
+        if (!isNaN(liters)) {
+          logs.dailyHydrationLogged = true;
+          logs.dailyHydrationLiters = liters;
+        }
+      } else if (hydrated === false) {
+        logs.dailyHydrationLogged = false;
+        logs.dailyHydrationLiters = 0;
       }
-    } else if (hydrated === false) {
-      logs.dailyHydrationLogged = false;
-      logs.dailyHydrationLiters = 0;
     }
     
-    if (coldExposure) {
-      logs.dailyColdExposure = true;
-      const cMins = parseInt(coldMinutes, 10);
-      if (!isNaN(cMins)) logs.dailyColdMinutes = cMins;
-    } else if (coldExposure === false) {
-      logs.dailyColdExposure = false;
-      logs.dailyColdMinutes = 0;
+    if (alreadyCold === undefined) {
+      if (coldExposure) {
+        logs.dailyColdExposure = true;
+        const cMins = parseInt(coldMinutes, 10);
+        if (!isNaN(cMins)) logs.dailyColdMinutes = cMins;
+      } else if (coldExposure === false) {
+        logs.dailyColdExposure = false;
+        logs.dailyColdMinutes = 0;
+      }
     }
     
-    if (trained) {
-      const tMins = parseInt(trainingMinutes, 10);
-      if (!isNaN(tMins)) logs.dailyTrainingMinutes = tMins;
-      if (trainingType.trim()) logs.dailyTrainingType = trainingType.trim();
-    } else if (trained === false) {
-      logs.dailyTrainingMinutes = 0;
-      logs.dailyTrainingType = '';
+    if (alreadyTrained === false || alreadyTrained === undefined) {
+      if (trained) {
+        const tMins = parseInt(trainingMinutes, 10);
+        if (!isNaN(tMins)) logs.dailyTrainingMinutes = tMins;
+        if (trainingType.trim()) logs.dailyTrainingType = trainingType.trim();
+      } else if (trained === false) {
+        logs.dailyTrainingMinutes = 0;
+        logs.dailyTrainingType = '';
+      }
     }
 
     useDimensionStore.getState().logManualEntry(todayStr, logs);
@@ -327,86 +341,108 @@ export const EveningDebriefSheet = forwardRef<BottomSheetModal, {}>((_, ref) => 
           </View>
 
           <View style={styles.logSection}>
-            <Text style={[t('heading-s'), styles.label]}>SLEEP QUALITY (1-5)</Text>
-            <View style={styles.energyRow}>
-              {[1, 2, 3, 4, 5].map((val) => (
-                <EnergyCircularOption 
-                  key={val} 
-                  value={val} 
-                  selected={sleepQuality === val} 
-                  onPress={() => setSleepQuality(val)} 
-                />
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.logSection}>
-             <LogToggleRow 
-               icon={Droplets} 
-               label="HYDRATION" 
-               value={hydrated} 
-               onToggle={setHydrated} 
-             />
-             {hydrated && (
-              <TextInput
-                style={[t('body-l'), styles.input, {marginTop: Spacing.sm}]}
-                placeholder="Liters of water (e.g. 2.5)"
-                placeholderTextColor={Colors.silverLo}
-                selectionColor={Colors.silverHi}
-                value={hydrationLiters}
-                onChangeText={setHydrationLiters}
-                keyboardType="decimal-pad"
-              />
-             )}
+            {alreadyHydrated !== undefined ? (
+              <GhostCard style={{padding: Spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                   <Droplets size={16} color={Colors.silverMid}/>
+                   <Text style={[t('body-m'), {color: Colors.silverHi, marginLeft: Spacing.sm}]}>Hydration</Text>
+                 </View>
+                 <Text style={[t('data-s'), {color: Colors.silverHi}]}>{alreadyHydrated ? `${alreadyHydrationLiters}L ✓` : 'Skipped'}</Text>
+              </GhostCard>
+            ) : (
+               <React.Fragment>
+                 <LogToggleRow 
+                   icon={Droplets} 
+                   label="HYDRATION" 
+                   value={hydrated} 
+                   onToggle={setHydrated} 
+                 />
+                 {hydrated && (
+                  <TextInput
+                    style={[t('body-l'), styles.input, {marginTop: Spacing.sm}]}
+                    placeholder="Liters of water (e.g. 2.5)"
+                    placeholderTextColor={Colors.silverLo}
+                    selectionColor={Colors.silverHi}
+                    value={hydrationLiters}
+                    onChangeText={setHydrationLiters}
+                    keyboardType="decimal-pad"
+                  />
+                 )}
+               </React.Fragment>
+            )}
           </View>
           
           <View style={styles.logSection}>
-             <LogToggleRow 
-               icon={Snowflake} 
-               label="COLD EXPOSURE" 
-               value={coldExposure} 
-               onToggle={setColdExposure} 
-             />
-            {coldExposure && (
-              <TextInput
-                style={[t('body-l'), styles.input, {marginTop: Spacing.sm}]}
-                placeholder="Minutes in cold (e.g. 3)"
-                placeholderTextColor={Colors.silverLo}
-                selectionColor={Colors.silverHi}
-                value={coldMinutes}
-                onChangeText={setColdMinutes}
-                keyboardType="numeric"
-              />
+            {alreadyCold !== undefined ? (
+              <GhostCard style={{padding: Spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                   <Snowflake size={16} color={Colors.silverMid}/>
+                   <Text style={[t('body-m'), {color: Colors.silverHi, marginLeft: Spacing.sm}]}>Cold Exposure</Text>
+                 </View>
+                 <Text style={[t('data-s'), {color: Colors.silverHi}]}>{alreadyCold ? `${alreadyColdMins}m ✓` : 'Skipped'}</Text>
+              </GhostCard>
+            ) : (
+               <React.Fragment>
+                 <LogToggleRow 
+                   icon={Snowflake} 
+                   label="COLD EXPOSURE" 
+                   value={coldExposure} 
+                   onToggle={setColdExposure} 
+                 />
+                {coldExposure && (
+                  <TextInput
+                    style={[t('body-l'), styles.input, {marginTop: Spacing.sm}]}
+                    placeholder="Minutes in cold (e.g. 3)"
+                    placeholderTextColor={Colors.silverLo}
+                    selectionColor={Colors.silverHi}
+                    value={coldMinutes}
+                    onChangeText={setColdMinutes}
+                    keyboardType="numeric"
+                  />
+                )}
+               </React.Fragment>
             )}
           </View>
 
           <View style={styles.logSection}>
-             <LogToggleRow 
-               icon={Dumbbell} 
-               label="PHYSICAL TRAINING" 
-               value={trained} 
-               onToggle={setTrained} 
-             />
-             {trained && (
-              <View style={{flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm}}>
-                <TextInput
-                  style={[t('body-l'), styles.input, {flex: 1}]}
-                  placeholder="Active Mins"
-                  placeholderTextColor={Colors.silverLo}
-                  selectionColor={Colors.silverHi}
-                  value={trainingMinutes}
-                  onChangeText={setTrainingMinutes}
-                  keyboardType="numeric"
-                />
-                <TextInput
-                  style={[t('body-l'), styles.input, {flex: 2}]}
-                  placeholder="Type (e.g. Cardio)"
-                  placeholderTextColor={Colors.silverLo}
-                  selectionColor={Colors.silverHi}
-                  value={trainingType}
-                  onChangeText={setTrainingType}
-                />
-              </View>
+            {alreadyTrained ? (
+              <GhostCard style={{padding: Spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                   <Dumbbell size={16} color={Colors.silverMid}/>
+                   <Text style={[t('body-m'), {color: Colors.silverHi, marginLeft: Spacing.sm}]}>Training</Text>
+                 </View>
+                 <Text style={[t('data-s'), {color: Colors.silverHi}]}>{alreadyTrainedMins}m {alreadyTrainedType} ✓</Text>
+              </GhostCard>
+            ) : (
+               <React.Fragment>
+                 <LogToggleRow 
+                   icon={Dumbbell} 
+                   label="PHYSICAL TRAINING" 
+                   value={trained} 
+                   onToggle={setTrained} 
+                 />
+                 {trained && (
+                  <View style={{flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm}}>
+                    <TextInput
+                      style={[t('body-l'), styles.input, {flex: 1}]}
+                      placeholder="Active Mins"
+                      placeholderTextColor={Colors.silverLo}
+                      selectionColor={Colors.silverHi}
+                      value={trainingMinutes}
+                      onChangeText={setTrainingMinutes}
+                      keyboardType="numeric"
+                    />
+                    <TextInput
+                      style={[t('body-l'), styles.input, {flex: 2}]}
+                      placeholder="Type (e.g. Cardio)"
+                      placeholderTextColor={Colors.silverLo}
+                      selectionColor={Colors.silverHi}
+                      value={trainingType}
+                      onChangeText={setTrainingType}
+                    />
+                  </View>
+                )}
+               </React.Fragment>
             )}
           </View>
 
