@@ -51,23 +51,36 @@ class StepCounterModule : Module() {
         val todayDateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
 
         val savedDate = prefs.getString("lastDate", "")
-        val savedBaseline = prefs.getInt("baselineSteps", -1)
+        var accumulated = prefs.getInt("accumulated", 0)
+        var lastSensor = prefs.getInt("lastSensor", -1)
 
         val currentSteps = stepCount
 
-        if (savedDate != todayDateStr || savedBaseline == -1) {
+        if (savedDate != todayDateStr) {
+          accumulated = 0
+          lastSensor = currentSteps
           prefs.edit()
             .putString("lastDate", todayDateStr)
-            .putInt("baselineSteps", currentSteps)
+            .putInt("accumulated", 0)
+            .putInt("lastSensor", currentSteps)
             .apply()
           finalSteps = 0
         } else {
-          finalSteps = currentSteps - savedBaseline
-          if (finalSteps < 0) {
-            // Device likely rebooted resetting sensor
-            prefs.edit().putInt("baselineSteps", 0).apply()
-            finalSteps = currentSteps
+          if (lastSensor == -1) {
+             lastSensor = currentSteps
           }
+          if (currentSteps < lastSensor) {
+            accumulated += lastSensor
+            lastSensor = currentSteps
+          }
+          
+          val diff = currentSteps - lastSensor
+          finalSteps = accumulated + diff
+          
+          prefs.edit()
+            .putInt("lastSensor", currentSteps)
+            .putInt("accumulated", accumulated)
+            .apply()
         }
       }
 

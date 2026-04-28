@@ -105,7 +105,16 @@ class UsageStatsModule : Module() {
       }
 
       // BUG 1: Wake Rhythm shows "00:02" instead of real hour
+      val EXCLUDED_PACKAGES = setOf(
+        "com.android.systemui",
+        "com.sec.android.app.launcher",
+        "com.google.android.apps.nexuslauncher",
+        "com.miui.home",
+        "com.coloros.launcher"
+      )
+
       var firstUnlockMs = 0L
+      var currentUnlockCandidate = 0L
 
       // Define the valid window: 05:00 to midnight of the queried date
       val fiveAmCal = Calendar.getInstance()
@@ -121,11 +130,27 @@ class UsageStatsModule : Module() {
 
       while (unlockEvents.hasNextEvent()) {
         unlockEvents.getNextEvent(unlockEvent)
-        // KEYGUARD_HIDDEN = user dismissed lock screen (actual human unlock)
+        if (firstUnlockMs > 0L) break
+
         if (unlockEvent.eventType == UsageEvents.Event.KEYGUARD_HIDDEN) {
-          firstUnlockMs = unlockEvent.timeStamp
-          break  // Only want the FIRST one
+          if (currentUnlockCandidate == 0L) {
+            currentUnlockCandidate = unlockEvent.timeStamp
+          }
+        } else if (unlockEvent.eventType == UsageEvents.Event.SCREEN_NON_INTERACTIVE) {
+          currentUnlockCandidate = 0L
+        } else if (unlockEvent.eventType == UsageEvents.Event.ACTIVITY_PAUSED) {
+          if (currentUnlockCandidate > 0L && !EXCLUDED_PACKAGES.contains(unlockEvent.packageName)) {
+            if (unlockEvent.timeStamp - currentUnlockCandidate >= 120_000L) {
+              firstUnlockMs = currentUnlockCandidate
+              break
+            }
+          }
         }
+      }
+      if (firstUnlockMs == 0L && currentUnlockCandidate > 0L) {
+         if (System.currentTimeMillis() - currentUnlockCandidate >= 120_000L) {
+            firstUnlockMs = currentUnlockCandidate
+         }
       }
 
       // BUG 4: Recovery State showing 328 min (counting sleep time)

@@ -1,7 +1,7 @@
 // app/(tabs)/today.tsx
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { ChevronRight } from 'lucide-react-native';
@@ -69,9 +69,14 @@ export default function TodayScreen() {
   const morningSheetRef = useRef<BottomSheetModal>(null);
   const eveningSheetRef = useRef<BottomSheetModal>(null);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      useDimensionStore.getState().refreshTodayData(); // real data if native build
+    }, [])
+  );
+
   useEffect(() => {
     useDimensionStore.getState().seedIfNeeded();
-    useDimensionStore.getState().refreshTodayData(); // real data if native build
 
     const state = useDimensionStore.getState()
     const checkin = useCheckinStore.getState()

@@ -1,7 +1,7 @@
 // app/dimension/[id].tsx
 import React, { useEffect, useRef } from 'react';
 import { View, Text, ScrollView, Dimensions, StyleSheet, Pressable, Alert } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { EveningDebriefSheet } from '../../src/components/sheets/EveningDebriefSheet';
 import Svg, { Rect, Circle, Polyline, Line, Text as SvgText } from 'react-native-svg';
@@ -610,7 +610,9 @@ export function RetentionTimer({ currentStreak, relapseLog }: { currentStreak: n
     if (currentStreak === 0 && relapseLog.length > 0) {
       startTimestamp = relapseLog[relapseLog.length - 1].timestamp;
     } else {
-      startTimestamp = Date.now() - (currentStreak * 86400000);
+      const todayAtMidnight = new Date();
+      todayAtMidnight.setHours(0, 0, 0, 0);
+      startTimestamp = todayAtMidnight.getTime() - ((currentStreak - 1) * 86400000); // Because current day is partly elapsed
     }
 
     const interval = setInterval(() => {
@@ -653,6 +655,12 @@ export default function DimensionDetailScreen() {
   
   const manualLogs = useDimensionStore(s => s.manualLogs);
   const retentionData = useDimensionStore(s => s.retention);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      useDimensionStore.getState().refreshTodayData();
+    }, [])
+  );
 
   if (!id || !NameMap[id]) return null;
 
